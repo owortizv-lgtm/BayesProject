@@ -18,9 +18,18 @@ Se recupera una imagen limpia a partir de una versión contaminada con ruido, us
 
 ### Imagen binaria (ρ₀ = 0.10)
 
-| Original | Contaminada | Restaurada |
-|:--:|:--:|:--:|
-| ![](figuras/ising_original.png) | ![](figuras/ising_contaminada.png) | ![](figuras/ising_restaurada.png) |
+<table>
+  <tr>
+    <th align="center">Original</th>
+    <th align="center">Contaminada</th>
+    <th align="center">Restaurada</th>
+  </tr>
+  <tr>
+    <td><img src="figuras/ising_original.png" width="250"></td>
+    <td><img src="figuras/ising_contaminada.png" width="250"></td>
+    <td><img src="figuras/ising_restaurada.png" width="250"></td>
+  </tr>
+</table>
 
 La proporción de píxeles correctos pasa de 90.1 % a 99 %.
 
