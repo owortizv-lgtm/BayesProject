@@ -2,3 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# Referencias externas y temporales (agentes)
+.refs/
+output/*.rds
+.claude/settings.local.json
