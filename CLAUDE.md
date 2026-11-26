@@ -23,11 +23,11 @@ Enunciado: `caso.Rmd`. Teoría ya derivada: `teoria.tex` (posteriores conjuntas 
 ## Estructura objetivo
 ```
 imagenes/            PNG originales (caso.Rmd los busca aquí)
-01_grafo.R           grafo 4-vecinos, A, D, L=D-A (Matrix), vectorización por columnas, RGB P×3
+R/01_grafo.R         grafo 4-vecinos, A, D, L=D-A (Matrix), tablero, CSR, vectorización por columnas, RGB P×3
 02_ising.R           Ising: Gibbs (tablero de ajedrez) + exchange aproximado
 03_gmrf_grises.R     GMRF univariado: Gibbs + MH(τ, λ) con Cholesky disperso
 04_gmrf_rgb.R        GMRF multivariado: Gibbs + MH(λ), Wishart / Wishart Inversa
-src/*.cpp            barridos de Gibbs en Rcpp
+src/*.cpp            barridos de Gibbs en Rcpp (ising_barrido.cpp; requiere Rtools, si no 02_ising.R usa R)
 99_ejecutar.R        corre los escenarios ρ0, σ0 ∈ {0.05, 0.10, 0.20}
 output/*.rds         resultados (ignorados por git)
 figuras/             PNG para informe y README

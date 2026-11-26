@@ -1,4 +1,4 @@
-source("R01_grafo.R")
+source("R/01_grafo.R")
 source("02_ising.R")
 library(coda)
 

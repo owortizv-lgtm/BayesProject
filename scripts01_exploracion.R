@@ -1,4 +1,4 @@
-source("R01_grafo.R")
+source("R/01_grafo.R")
 
 # --- Cargar imágenes ---
 horse     <- readPNG("imagenes/horse_binaria.png")
