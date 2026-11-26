@@ -1,0 +1,775 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage[margin=2.5cm]{geometry}
+
+\title{Teoría Caso de Estudio: Restauración Bayesiana de Imágenes}
+\author{Melissa Chaves Beltrán \\ Owen Deybis Ortiz Velasquez}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+%======================================================================
+\section{Imagen binaria: modelo de Ising}
+%======================================================================
+
+Considere la imagen binaria original $\boldsymbol{X}^{(0)} \in \{-1,+1\}^P$, donde $+1$ representa el negro y $-1$ el blanco. Para generar una imagen contaminada $\boldsymbol{Y}$, suponga que cada píxel cambia de estado de manera independiente con probabilidad $\rho_0 = 0.10$. En particular, $Y_i = -X_i^{(0)}$ con probabilidad $\rho_0$ y $Y_i = X_i^{(0)}$ con probabilidad $1-\rho_0$. Simule este mecanismo de contaminación y compare visualmente las imágenes original y contaminada.
+
+El objetivo es recuperar la imagen binaria verdadera $\boldsymbol{X}$ a partir de su versión contaminada $\boldsymbol{Y}$. Para ello, considere el \textbf{modelo de Ising}, que incorpora dependencia espacial al asignar mayor probabilidad a configuraciones en las que los píxeles vecinos tienen el mismo estado. El modelo bayesiano se especifica mediante
+\begin{align*}
+\Pr(Y_i = y_i \mid X_i = x_i, \rho) &= \begin{cases} 1 - \rho, & y_i = x_i, \\ \rho, & y_i \neq x_i, \end{cases} \\[6pt]
+p(\boldsymbol{x} \mid \beta) &= \frac{1}{Z(\beta)} \exp\left\{ \beta \sum_{i \sim j} x_i x_j \right\}, \\[6pt]
+\beta &\sim \textsf{G}(a_\beta, b_\beta), \\
+\rho &\sim \textsf{Beta}(a_\rho, b_\rho) \quad \text{truncada en } \left(0, \tfrac{1}{2}\right).
+\end{align*}
+
+Las componentes del modelo son:
+\begin{itemize}
+    \item \textbf{Modelo de observación:} describe la contaminación de la imagen mediante cambios independientes en los estados de los píxeles, con probabilidad $\rho$.
+    \item \textbf{Modelo de Ising:} define la distribución previa de la imagen desconocida $\boldsymbol{X}$. El parámetro $\beta > 0$ controla la dependencia espacial, favoreciendo la coincidencia entre píxeles vecinos. La notación $i \sim j$ representa una arista contada una sola vez y $Z(\beta)$ es la constante de normalización, que depende de $\beta$.
+    \item \textbf{Distribuciones previas:} representan la incertidumbre sobre los parámetros $\beta$ y $\rho$, considerados independientes a priori. Los valores $a_\beta, b_\beta, a_\rho, b_\rho$ son hiperparámetros conocidos.
+\end{itemize}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Formule la distribución posterior conjunta $p(\boldsymbol{x}, \beta, \rho \mid \boldsymbol{y})$ y derive las distribuciones condicionales completas de $X_i$, $\beta$ y $\rho$. Identifique cuáles corresponden a distribuciones conocidas. Explique por qué la actualización de $X_i$ depende únicamente de sus vecinos y de $y_i$, y analice las dificultades que introduce $Z(\beta)$ para estimar $\beta$.
+\end{enumerate}
+
+%----------------------------------------------------------------------
+\subsection{Distribución posterior conjunta}
+%----------------------------------------------------------------------
+
+Sea $\boldsymbol{X} \in \{-1,+1\}^P$ la imagen original desconocida, $\boldsymbol{Y}$ la imagen contaminada observada, y $\beta$, $\rho$ los parámetros. Denotamos por $\mathbb{I}(\cdot)$ la función indicadora y por $\sum_{i\sim j}$ la suma sobre las aristas del grafo, contando cada arista una sola vez.
+
+Por el teorema de Bayes,
+\[
+p(\boldsymbol{x}, \beta, \rho \mid \boldsymbol{y}) \propto p(\boldsymbol{y} \mid \boldsymbol{x}, \rho)\, p(\boldsymbol{x} \mid \beta)\, p(\beta)\, p(\rho).
+\]
+
+Como los píxeles se contaminan de forma independiente,
+\[
+p(\boldsymbol{y} \mid \boldsymbol{x}, \rho) = \prod_{i=1}^{P} \Pr(Y_i = y_i \mid X_i = x_i, \rho) = \prod_{i=1}^{P} (1-\rho)^{\mathbb{I}(y_i = x_i)}\, \rho^{\mathbb{I}(y_i \neq x_i)}.
+\]
+
+La previa de Ising está definida como
+\[
+p(\boldsymbol{x} \mid \beta) = \frac{1}{Z(\beta)} \exp\left\{ \beta \sum_{i \sim j} x_i x_j \right\}, \qquad \boldsymbol{x} \in \{-1,+1\}^P,
+\]
+donde $Z(\beta) = \sum_{\boldsymbol{x} \in \{-1,+1\}^P} \exp\left\{ \beta \sum_{i \sim j} x_i x_j \right\}$.
+
+Con la parametrización forma-tasa, $\beta \sim \textsf{G}(a_\beta, b_\beta)$ tiene densidad
+\[
+p(\beta) = \frac{b_\beta^{a_\beta}}{\Gamma(a_\beta)}\, \beta^{a_\beta - 1} e^{-b_\beta \beta}, \qquad \beta > 0.
+\]
+
+La distribución Beta truncada en $(0, 1/2)$ tiene densidad
+\[
+p(\rho) = C(a_\rho, b_\rho)\, \rho^{a_\rho - 1} (1-\rho)^{b_\rho - 1}\, \mathbb{I}\left(0 < \rho < \tfrac{1}{2}\right),
+\]
+donde $C(a_\rho, b_\rho)$ es una constante que no depende de $\rho$. Si la Beta no estuviera truncada, sería $C = \frac{\Gamma(a_\rho + b_\rho)}{\Gamma(a_\rho)\Gamma(b_\rho)}$. Con el truncamiento, $C$ es el inverso de $B(a_\rho, b_\rho)\, F_{\textsf{Beta}}(1/2; a_\rho, b_\rho)$, donde $F_{\textsf{Beta}}$ es la función de distribución acumulada.
+
+Multiplicando los cuatro factores,
+\begin{align*}
+p(\boldsymbol{x}, \beta, \rho \mid \boldsymbol{y}) &\propto \left[ \prod_{i=1}^{P} (1-\rho)^{\mathbb{I}(y_i = x_i)}\, \rho^{\mathbb{I}(y_i \neq x_i)} \right] \frac{1}{Z(\beta)} \exp\left\{ \beta \sum_{i \sim j} x_i x_j \right\} \\
+&\quad \times \beta^{a_\beta - 1} e^{-b_\beta \beta}\, \rho^{a_\rho - 1} (1-\rho)^{b_\rho - 1},
+\end{align*}
+donde las constantes $\frac{b_\beta^{a_\beta}}{\Gamma(a_\beta)}$ y $C(a_\rho, b_\rho)$ se eliminan por la proporcionalidad. Finalmente,
+\[
+\begin{aligned}
+p(\boldsymbol{x}, \beta, \rho \mid \boldsymbol{y}) \propto\;& \rho^{\,a_\rho - 1 + \sum_{i=1}^{P} \mathbb{I}(y_i \neq x_i)}\, (1-\rho)^{\,b_\rho - 1 + \sum_{i=1}^{P} \mathbb{I}(y_i = x_i)} \\
+&\times \frac{1}{Z(\beta)} \exp\left\{ \beta \sum_{i \sim j} x_i x_j \right\} \beta^{a_\beta - 1} e^{-b_\beta \beta},
+\end{aligned}
+\]
+para $0 < \rho < \tfrac{1}{2}$, $\beta > 0$ y $\boldsymbol{x} \in \{-1,+1\}^P$. Notar que $\sum_{i=1}^{P} \mathbb{I}(y_i \neq x_i) = P - \sum_{i=1}^{P} \mathbb{I}(y_i = x_i)$, por lo que la expresión también puede escribirse en términos del número de píxeles discordantes entre $\boldsymbol{x}$ e $\boldsymbol{y}$.
+
+%----------------------------------------------------------------------
+\subsection{Distribuciones condicionales completas}
+%----------------------------------------------------------------------
+
+\subsubsection*{Condicional completa de $X_i$}
+
+Sea $\boldsymbol{x}_{-i}$ el vector de todos los píxeles excepto $x_i$, $N_i$ el conjunto de vecinos del píxel $i$ y
+\[
+S_i = \sum_{j \in N_i} x_j
+\]
+la suma de los vecinos de $i$. La condicional completa $p(x_i \mid \boldsymbol{x}_{-i}, \boldsymbol{y}, \beta, \rho)$ se abrevia como $p(x_i \mid \cdot)$. Solo se conservan los factores que dependen de $x_i$:
+\[
+p(x_i \mid \cdot) \propto p(y_i \mid x_i, \rho)\, p(x_i \mid \boldsymbol{x}_{-i}, \beta).
+\]
+
+En $p(\boldsymbol{x}\mid\beta) = \frac{1}{Z(\beta)}\exp\{\beta \sum_{k \sim l} x_k x_l\}$, cada arista se cuenta una vez. Las únicas aristas que contienen a $i$ son las de la forma $i \sim j$ con $j\in N_i$, así que
+\[
+\sum_{k \sim l} x_k x_l = x_i \sum_{j \in N_i} x_j + \sum_{\substack{k \sim l \\ k,l \neq i}} x_k x_l.
+\]
+El segundo término no depende de $x_i$, y $Z(\beta)$ tampoco. Por tanto,
+\[
+p(x_i \mid \boldsymbol{x}_{-i}, \beta) \propto \exp\{\beta\, x_i S_i\},
+\]
+y la condicional completa es
+\[
+p(x_i \mid \cdot) \propto (1-\rho)^{\mathbb{I}(y_i = x_i)}\, \rho^{\mathbb{I}(y_i \neq x_i)}\, \exp\{\beta\, x_i S_i\}, \qquad x_i \in \{-1,+1\}.
+\]
+
+Evaluando en los dos valores posibles:
+\begin{align*}
+a_+ &= (1-\rho)^{\mathbb{I}(y_i = +1)}\, \rho^{\mathbb{I}(y_i \neq +1)}\, \exp\{\beta S_i\}, \\
+a_- &= (1-\rho)^{\mathbb{I}(y_i = -1)}\, \rho^{\mathbb{I}(y_i \neq -1)}\, \exp\{-\beta S_i\}.
+\end{align*}
+Como $\Pr(X_i = +1 \mid \cdot) + \Pr(X_i = -1 \mid \cdot) = 1$,
+\[
+\Pr(X_i = +1 \mid \cdot) = \frac{a_+}{a_+ + a_-} = \frac{1}{1 + a_-/a_+}.
+\]
+
+Para el cociente $a_-/a_+$ se tienen dos casos:
+
+\textbf{Caso $y_i = +1$:}
+\[
+\frac{a_-}{a_+} = \frac{\rho\, \exp\{-\beta S_i\}}{(1-\rho)\, \exp\{\beta S_i\}} = \left(\frac{\rho}{1-\rho}\right) \exp\{-2\beta S_i\}.
+\]
+
+\textbf{Caso $y_i = -1$:}
+\[
+\frac{a_-}{a_+} = \frac{(1-\rho)\, \exp\{-\beta S_i\}}{\rho\, \exp\{\beta S_i\}} = \left(\frac{\rho}{1-\rho}\right)^{-1} \exp\{-2\beta S_i\}.
+\]
+
+Ambos casos se unifican con el exponente $y_i \in \{-1,+1\}$:
+\[
+\frac{a_-}{a_+} = \left(\frac{\rho}{1-\rho}\right)^{y_i} \exp\{-2\beta S_i\}.
+\]
+Entonces,
+\[
+\boxed{
+\begin{aligned}
+\Pr(X_i = +1 \mid \cdot) &= \left[ 1 + \left(\frac{\rho}{1-\rho}\right)^{y_i} \exp\left\{-2\beta \sum_{j \in N_i} x_j\right\} \right]^{-1}, \\[0.8em]
+\Pr(X_i = -1 \mid \cdot) &= 1 - \Pr(X_i = +1 \mid \cdot).
+\end{aligned}
+}
+\]
+
+\paragraph{Forma logística de la condicional.}
+Partiendo de $\Pr(X_i = +1 \mid \cdot) = 1/(1 + a_-/a_+)$, se escribe el cociente como una exponencial, definiendo $\eta_i$ por
+\[
+\frac{a_-}{a_+} = e^{-\eta_i}.
+\]
+Sustituyendo,
+\[
+\Pr(X_i = +1 \mid \cdot) = \frac{1}{1 + e^{-\eta_i}} = \sigma(\eta_i).
+\]
+Para encontrar $\eta_i$ se toma el logaritmo negativo en $e^{-\eta_i} = a_-/a_+$:
+\[
+\eta_i = -\log\frac{a_-}{a_+} = 2\beta S_i + y_i \log\frac{1-\rho}{\rho}.
+\]
+Con esto, la condicional queda como una función logística de un predictor lineal:
+\[
+\Pr(X_i = +1 \mid \cdot) = \sigma\!\left(2\beta \sum_{j\in N_i} x_j + y_i \log\frac{1-\rho}{\rho}\right).
+\]
+
+\textbf{Ventaja para el muestreador.} La probabilidad ya no requiere normalizar sumas de exponenciales. Basta calcular $\eta_i$, obtener $p_i = \sigma(\eta_i)$ y compararla con una uniforme: $X_i = +1$ si $U_i < p_i$, y $X_i = -1$ en otro caso. Esto es un muestreo Bernoulli exacto y numéricamente estable, porque $\sigma$ se evalúa como \texttt{expit}$(\eta_i)$.
+
+\paragraph{Dependencia de la condicional.}
+Los factores de la posterior que no contienen a $x_i$ son constantes y se absorben en la proporcionalidad. Solo quedan dos:
+\begin{itemize}
+    \item \textbf{Verosimilitud:} $p(y_i \mid x_i, \rho) = (1-\rho)^{\mathbb{I}(y_i = x_i)}\, \rho^{\mathbb{I}(y_i \neq x_i)}$, que involucra únicamente a $y_i$.
+    \item \textbf{Previa de Ising:} al separar las aristas que contienen a $i$ en $\sum_{k\sim l} x_k x_l = x_i \sum_{j\in N_i} x_j + (\text{términos sin } x_i)$, solo queda $\exp\{\beta\, x_i \sum_{j\in N_i} x_j\}$.
+\end{itemize}
+Por tanto,
+\[
+p(x_i \mid \boldsymbol{x}_{-i}, \boldsymbol{y}, \beta, \rho) \propto (1-\rho)^{\mathbb{I}(y_i = x_i)}\, \rho^{\mathbb{I}(y_i \neq x_i)} \exp\Big\{\beta\, x_i \sum_{j\in N_i} x_j\Big\}.
+\]
+Así, la condicional depende solo de $y_i$, de los vecinos $\{x_j : j \in N_i\}$ y de los parámetros $\beta$ y $\rho$.
+
+\subsubsection*{Condicional completa de $\rho$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\rho$:
+\begin{align*}
+p(\rho \mid \boldsymbol{x}, \beta, \boldsymbol{y}) &\propto p(\boldsymbol{y} \mid \boldsymbol{x}, \rho)\, p(\rho) \\[6pt]
+&\propto \left[ \prod_{i=1}^{P} (1 - \rho)^{\mathbb{I}(y_i = x_i)} \rho^{\mathbb{I}(y_i \neq x_i)} \right] \rho^{a_\rho - 1} (1 - \rho)^{b_\rho - 1} \, \mathbb{I}\!\left(0 < \rho < \tfrac{1}{2}\right) \\[6pt]
+&= \rho^{\left(a_\rho + \sum_{i=1}^{P} \mathbb{I}(y_i \neq x_i)\right) - 1} (1 - \rho)^{\left(b_\rho + \sum_{i=1}^{P} \mathbb{I}(y_i = x_i)\right) - 1} \, \mathbb{I}\!\left(0 < \rho < \tfrac{1}{2}\right).
+\end{align*}
+Esto coincide con el núcleo de una distribución Beta truncada en el mismo intervalo:
+\[
+\rho \mid \boldsymbol{x}, \beta, \boldsymbol{y} \sim \textsf{Beta}\!\left( a_\rho + \sum_{i=1}^{P} \mathbb{I}(y_i \neq x_i), \; b_\rho + \sum_{i=1}^{P} \mathbb{I}(y_i = x_i) \right) \quad \text{truncada en } \left(0, \tfrac{1}{2}\right).
+\]
+
+\subsubsection*{Condicional completa de $\beta$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\beta$:
+\begin{align*}
+p(\beta \mid \boldsymbol{x}, \rho, \boldsymbol{y}) &\propto p(\boldsymbol{x} \mid \beta)\, p(\beta) \\[6pt]
+&\propto \frac{1}{Z(\beta)} \exp\left\{ \beta \sum_{i \sim j} x_i x_j \right\} \beta^{a_\beta - 1} \exp(-b_\beta \beta) \, \mathbb{I}(\beta > 0) \\[6pt]
+&= \frac{\beta^{a_\beta - 1}}{Z(\beta)} \exp\left\{ -\beta \left( b_\beta - \sum_{i \sim j} x_i x_j \right) \right\} \mathbb{I}(\beta > 0).
+\end{align*}
+Aunque el numerador coincide con el núcleo de una distribución Gamma, la presencia de la constante de normalización $Z(\beta)$ en el denominador rompe la conjugacidad, por lo que $p(\beta \mid \boldsymbol{x}, \rho, \boldsymbol{y})$ no corresponde a una distribución conocida en forma cerrada.
+
+%======================================================================
+\section{Escala de grises: modelo gaussiano espacial}
+%======================================================================
+
+Considere la imagen original en escala de grises $\boldsymbol{X}^{(0)} \in [0, 1]^P$, donde cada valor representa la intensidad de un píxel. Para generar una imagen contaminada $\boldsymbol{Y}$, agregue ruido gaussiano independiente con desviación estándar $\sigma_0 = 0.10$. En particular, simule $Y_i = X_i^{(0)} + \varepsilon_i$, donde $\varepsilon_i \overset{\text{iid}}{\sim} \textsf{N}(0, \sigma_0^2)$. Compare visualmente las imágenes original y contaminada. No recorte los valores observados fuera de $[0, 1]$ durante la inferencia. Limite las intensidades a este intervalo únicamente para su visualización.
+
+El objetivo es recuperar la imagen verdadera $\boldsymbol{X}$ a partir de $\boldsymbol{Y}$. Para ello, considere un \textbf{campo aleatorio gaussiano de Markov (GMRF)}, que incorpora dependencia espacial al favorecer intensidades similares entre píxeles vecinos. El modelo bayesiano se especifica mediante
+\begin{align*}
+Y_i \mid X_i, \sigma^2 &\overset{\text{ind}}{\sim} \textsf{N}(X_i, \sigma^2), \\[6pt]
+p(\boldsymbol{x} \mid \mu, \tau, \lambda) &= \frac{|\mathbf{Q}|^{1/2}}{(2\pi)^{P/2}} \exp\left\{ -\frac{\tau}{2} \sum_{i=1}^{P} (x_i - \mu)^2 - \frac{\lambda}{2} \sum_{i \sim j} (x_i - x_j)^2 \right\}, \\[6pt]
+\sigma^2 &\sim \textsf{IG}(a_\sigma, b_\sigma), \\
+\mu &\sim \textsf{N}(m_\mu, s_\mu^2), \\
+\tau &\sim \textsf{G}(a_\tau, b_\tau), \\
+\lambda &\sim \textsf{G}(a_\lambda, b_\lambda),
+\end{align*}
+donde $\mathbf{Q} = \tau\mathbf{I} + \lambda\mathbf{L}$ es la matriz de precisión del campo gaussiano, con $\tau > 0$ y $\lambda > 0$. Las distribuciones previas de los parámetros se consideran independientes.
+
+Las componentes del modelo son:
+\begin{itemize}
+    \item \textbf{Modelo de observación:} representa la contaminación mediante ruido gaussiano independiente, cuya varianza $\sigma^2$ determina la intensidad del ruido.
+    \item \textbf{Modelo GMRF:} define la distribución previa de la imagen desconocida $\boldsymbol{X}$. El parámetro $\mu$ representa la intensidad de referencia, $\tau$ controla la concentración alrededor de ella y $\lambda$ regula la suavidad espacial, penalizando diferencias entre píxeles vecinos. La matriz $\mathbf{L}$ es la Laplaciana definida anteriormente y $\mathbf{Q}$ es la inversa de la matriz de covarianza. La condición $\tau > 0$ garantiza que la distribución sea propia.
+    \item \textbf{Distribuciones previas:} representan la incertidumbre sobre $\sigma^2$, $\mu$, $\tau$ y $\lambda$. Los valores $m_\mu, s_\mu^2, a_\tau, b_\tau, a_\lambda, b_\lambda, a_\sigma, b_\sigma$ son hiperparámetros conocidos.
+\end{itemize}
+
+Aunque las intensidades originales pertenecen a $[0, 1]$, el campo gaussiano permite valores en $\mathbb{R}$, lo que facilita la inferencia y constituye una aproximación para representar imágenes digitales.
+
+\begin{enumerate}[label=\arabic*.]
+    \item Formule la distribución posterior conjunta $p(\boldsymbol{x}, \mu, \tau, \lambda, \sigma^2 \mid \boldsymbol{y})$ y derive las distribuciones condicionales completas de $X_i$, $\sigma^2$, $\mu$, $\tau$ y $\lambda$. Identifique cuáles corresponden a distribuciones conocidas. Verifique que la condicional de $X_i$ depende de su observación, de los estados vecinos y de los parámetros del modelo. Explique la importancia del determinante $|\mathbf{Q}|$ para estimar $\tau$ y $\lambda$.
+\end{enumerate}
+
+%----------------------------------------------------------------------
+\subsection{Distribución posterior conjunta}
+%----------------------------------------------------------------------
+
+\begin{align*}
+p(\boldsymbol{x}, \mu, \tau, \lambda, \sigma^2 \mid \boldsymbol{y})
+&\propto p(\boldsymbol{y} \mid \boldsymbol{x}, \sigma^2)\, p(\boldsymbol{x} \mid \mu, \tau, \lambda)\, p(\sigma^2)\, p(\mu)\, p(\tau)\, p(\lambda) \\[6pt]
+&= \left[ \prod_{i=1}^{P} (2\pi\sigma^2)^{-1/2} \exp\Big\{ -\frac{1}{2\sigma^2}(y_i - x_i)^2 \Big\} \right] \\
+&\quad \times \frac{|\mathbf{Q}|^{1/2}}{(2\pi)^{P/2}} \exp\Big\{ -\frac{\tau}{2}\sum_{i=1}^{P}(x_i - \mu)^2 - \frac{\lambda}{2}\sum_{i \sim j}(x_i - x_j)^2 \Big\} \\
+&\quad \times \frac{b_\sigma^{a_\sigma}}{\Gamma(a_\sigma)} (\sigma^2)^{-a_\sigma - 1} \exp\left(-\frac{b_\sigma}{\sigma^2}\right) (2\pi s_\mu^2)^{-1/2} \exp\Big\{ -\frac{1}{2s_\mu^2}(\mu - m_\mu)^2 \Big\} \\
+&\quad \times \frac{b_\tau^{a_\tau}}{\Gamma(a_\tau)} \tau^{a_\tau - 1} \exp(-b_\tau \tau) \, \frac{b_\lambda^{a_\lambda}}{\Gamma(a_\lambda)} \lambda^{a_\lambda - 1} \exp(-b_\lambda \lambda) \\[6pt]
+&\propto (\sigma^2)^{-P/2} \exp\Big\{ -\frac{1}{2\sigma^2}\sum_{i=1}^{P}(y_i - x_i)^2 \Big\} |\mathbf{Q}|^{1/2} \\
+&\quad \times \exp\Big\{ -\frac{\tau}{2}\sum_{i=1}^{P}(x_i - \mu)^2 - \frac{\lambda}{2}\sum_{i \sim j}(x_i - x_j)^2 \Big\} \\
+&\quad \times (\sigma^2)^{-a_\sigma - 1} \exp\left(-\frac{b_\sigma}{\sigma^2}\right) \exp\Big\{ -\frac{1}{2s_\mu^2}(\mu - m_\mu)^2 \Big\} \\
+&\quad \times \tau^{a_\tau - 1} \exp(-b_\tau \tau) \, \lambda^{a_\lambda - 1} \exp(-b_\lambda \lambda) \\[6pt]
+&= |\mathbf{Q}|^{1/2} (\sigma^2)^{-\left(a_\sigma + \frac{P}{2}\right) - 1} \tau^{a_\tau - 1} \lambda^{a_\lambda - 1} \\
+&\quad \times \exp\Big\{ -\frac{1}{\sigma^2}\left[ b_\sigma + \frac{1}{2}\sum_{i=1}^{P}(y_i - x_i)^2 \right] - \frac{\tau}{2}\sum_{i=1}^{P}(x_i - \mu)^2 \\
+&\qquad\qquad - \frac{\lambda}{2}\sum_{i \sim j}(x_i - x_j)^2 - \frac{1}{2s_\mu^2}(\mu - m_\mu)^2 - b_\tau \tau - b_\lambda \lambda \Big\},
+\end{align*}
+para $\tau > 0$, $\lambda > 0$, $\sigma^2 > 0$, $\mu \in \mathbb{R}$ y $\boldsymbol{x} \in \mathbb{R}^P$, donde $\mathbf{Q} = \tau\mathbf{I} + \lambda\mathbf{L}$.
+
+%----------------------------------------------------------------------
+\subsection{Distribuciones condicionales completas}
+%----------------------------------------------------------------------
+
+\subsubsection*{Condicional completa de $X_i$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $x_i$, recordando que en la suma sobre aristas $k \sim j$ cada par de vecinos se cuenta una sola vez, por lo que $x_i$ aparece exactamente en los $d_i$ términos correspondientes a su vecindad $N_i$:
+\begin{align*}
+p(x_i \mid \boldsymbol{x}_{-i}, \mu, \tau, \lambda, \sigma^2, \boldsymbol{y})
+&\propto \exp\Big\{ -\frac{1}{2\sigma^2}(y_i - x_i)^2 - \frac{\tau}{2}(x_i - \mu)^2 - \frac{\lambda}{2}\sum_{j \in N_i}(x_i - x_j)^2 \Big\} \\[6pt]
+&= \exp\Big\{ -\frac{1}{2}\Big[ \frac{1}{\sigma^2}(x_i^2 - 2x_i y_i + y_i^2) + \tau(x_i^2 - 2x_i\mu + \mu^2) \\
+&\qquad\qquad + \lambda\sum_{j \in N_i}(x_i^2 - 2x_i x_j + x_j^2) \Big] \Big\} \\[6pt]
+&\propto \exp\Big\{ -\frac{1}{2}\Big[ \left(\frac{1}{\sigma^2} + \tau + \lambda d_i\right)x_i^2 - 2\left(\frac{y_i}{\sigma^2} + \tau\mu + \lambda\sum_{j \in N_i} x_j\right)x_i \Big] \Big\},
+\end{align*}
+para $x_i \in \mathbb{R}$, donde $d_i = |N_i|$ es el número de vecinos del píxel $i$.
+
+Completando el cuadrado en el exponente, se reconoce el núcleo de una distribución normal univariada:
+\[
+X_i \mid \boldsymbol{x}_{-i}, \mu, \tau, \lambda, \sigma^2, \boldsymbol{y} \sim \textsf{N}\!\left( m_i, \, v_i \right),
+\]
+donde
+\[
+v_i = \left(\frac{1}{\sigma^2} + \tau + \lambda d_i\right)^{-1}
+\qquad \text{y} \qquad
+m_i = v_i \left(\frac{y_i}{\sigma^2} + \tau\mu + \lambda\sum_{j \in N_i} x_j\right).
+\]
+
+\paragraph{Dependencia de la condicional.}
+A partir de las expresiones obtenidas para la media $m_i$ y la varianza $v_i$, se verifica que la distribución condicional completa de $X_i$ depende únicamente de su propia observación $y_i$, de los estados de sus píxeles vecinos $\{x_j : j \in N_i\}$ (junto con el número de vecinos $d_i = |N_i|$) y de los parámetros del modelo $(\sigma^2, \mu, \tau, \lambda)$.
+
+\subsubsection*{Condicional completa de $\sigma^2$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\sigma^2$:
+\begin{align*}
+p(\sigma^2 \mid \boldsymbol{x}, \mu, \tau, \lambda, \boldsymbol{y})
+&\propto p(\boldsymbol{y} \mid \boldsymbol{x}, \sigma^2)\, p(\sigma^2) \\[6pt]
+&\propto (\sigma^2)^{-P/2} \exp\Big\{ -\frac{1}{2\sigma^2}\sum_{i=1}^{P}(y_i - x_i)^2 \Big\} (\sigma^2)^{-a_\sigma - 1} \exp\left(-\frac{b_\sigma}{\sigma^2}\right) \\[6pt]
+&= (\sigma^2)^{-\left(a_\sigma + \frac{P}{2}\right) - 1} \exp\Big\{ -\frac{1}{\sigma^2}\left[ b_\sigma + \frac{1}{2}\sum_{i=1}^{P}(y_i - x_i)^2 \right] \Big\},
+\end{align*}
+para $\sigma^2 > 0$. Este es el núcleo de una distribución Gamma Inversa, por lo que
+\[
+\sigma^2 \mid \boldsymbol{x}, \mu, \tau, \lambda, \boldsymbol{y} \sim \textsf{IG}\!\left( a_\sigma + \frac{P}{2}, \; b_\sigma + \frac{1}{2}\sum_{i=1}^{P}(y_i - x_i)^2 \right).
+\]
+
+\subsubsection*{Condicional completa de $\mu$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\mu$:
+\begin{align*}
+p(\mu \mid \boldsymbol{x}, \tau, \lambda, \sigma^2, \boldsymbol{y})
+&\propto p(\boldsymbol{x} \mid \mu, \tau, \lambda)\, p(\mu) \\[6pt]
+&\propto \exp\Big\{ -\frac{\tau}{2}\sum_{i=1}^{P}(x_i - \mu)^2 - \frac{1}{2s_\mu^2}(\mu - m_\mu)^2 \Big\} \\[6pt]
+&= \exp\Big\{ -\frac{1}{2}\Big[ \tau\sum_{i=1}^{P}(x_i^2 - 2\mu x_i + \mu^2) + \frac{1}{s_\mu^2}(\mu^2 - 2\mu m_\mu + m_\mu^2) \Big] \Big\} \\[6pt]
+&\propto \exp\Big\{ -\frac{1}{2}\Big[ \left(P\tau + \frac{1}{s_\mu^2}\right)\mu^2 - 2\left(\tau\sum_{i=1}^{P}x_i + \frac{m_\mu}{s_\mu^2}\right)\mu \Big] \Big\},
+\end{align*}
+para $\mu \in \mathbb{R}$. Completando el cuadrado, se reconoce el núcleo de una distribución normal univariada:
+\[
+\mu \mid \boldsymbol{x}, \tau, \lambda, \sigma^2, \boldsymbol{y} \sim \textsf{N}\!\left( m_\mu^*, \, v_\mu^* \right),
+\]
+donde
+\[
+v_\mu^* = \left(P\tau + \frac{1}{s_\mu^2}\right)^{-1}
+\qquad \text{y} \qquad
+m_\mu^* = v_\mu^* \left(\tau\sum_{i=1}^{P}x_i + \frac{m_\mu}{s_\mu^2}\right).
+\]
+
+\subsubsection*{Condicional completa de $\tau$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\tau$, teniendo en cuenta que $\mathbf{Q} = \tau\mathbf{I} + \lambda\mathbf{L}$ también depende de $\tau$:
+\begin{align*}
+p(\tau \mid \boldsymbol{x}, \mu, \lambda, \sigma^2, \boldsymbol{y})
+&\propto p(\boldsymbol{x} \mid \mu, \tau, \lambda)\, p(\tau) \\[6pt]
+&\propto |\mathbf{Q}|^{1/2} \exp\Big\{ -\frac{\tau}{2}\sum_{i=1}^{P}(x_i - \mu)^2 \Big\} \tau^{a_\tau - 1} \exp(-b_\tau \tau) \\[6pt]
+&= |\tau\mathbf{I} + \lambda\mathbf{L}|^{1/2} \tau^{a_\tau - 1} \exp\Big\{ -\tau\left[ b_\tau + \frac{1}{2}\sum_{i=1}^{P}(x_i - \mu)^2 \right] \Big\},
+\end{align*}
+para $\tau > 0$. Aunque el producto de los dos últimos factores corresponde al núcleo de una distribución Gamma, la presencia del determinante $|\mathbf{Q}|^{1/2} = |\tau\mathbf{I} + \lambda\mathbf{L}|^{1/2}$ altera su forma funcional y rompe la conjugacidad, por lo que esta condicional completa no corresponde a una distribución conocida en forma cerrada.
+
+\subsubsection*{Condicional completa de $\lambda$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\lambda$, teniendo en cuenta que $\mathbf{Q} = \tau\mathbf{I} + \lambda\mathbf{L}$ también depende de $\lambda$:
+\begin{align*}
+p(\lambda \mid \boldsymbol{x}, \mu, \tau, \sigma^2, \boldsymbol{y})
+&\propto p(\boldsymbol{x} \mid \mu, \tau, \lambda)\, p(\lambda) \\[6pt]
+&\propto |\mathbf{Q}|^{1/2} \exp\Big\{ -\frac{\lambda}{2}\sum_{i \sim j}(x_i - x_j)^2 \Big\} \lambda^{a_\lambda - 1} \exp(-b_\lambda \lambda) \\[6pt]
+&= |\tau\mathbf{I} + \lambda\mathbf{L}|^{1/2} \lambda^{a_\lambda - 1} \exp\Big\{ -\lambda\left[ b_\lambda + \frac{1}{2}\sum_{i \sim j}(x_i - x_j)^2 \right] \Big\},
+\end{align*}
+para $\lambda > 0$. Al igual que en el caso de $\tau$, aunque los dos últimos factores conforman el núcleo de una distribución Gamma, la presencia del determinante $|\mathbf{Q}|^{1/2} = |\tau\mathbf{I} + \lambda\mathbf{L}|^{1/2}$ altera su forma funcional y rompe la conjugacidad, por lo que esta condicional completa tampoco corresponde a una distribución conocida en forma cerrada.
+
+%======================================================================
+\section{Imagen RGB: modelo gaussiano multivariado}
+%======================================================================
+
+Considere la imagen RGB original $\boldsymbol{X}^{(0)}$, donde cada píxel está representado por un vector $\boldsymbol{X}_i^{(0)} = (R_i, G_i, B_i)' \in [0, 1]^3$. Para generar una imagen contaminada $\boldsymbol{Y}$, agregue ruido gaussiano independiente con desviación estándar $\sigma_0 = 0.10$ en cada canal. En particular, simule $\boldsymbol{Y}_i = \boldsymbol{X}_i^{(0)} + \boldsymbol{\varepsilon}_i$, donde $\boldsymbol{\varepsilon}_i \overset{\text{iid}}{\sim} \textsf{N}_3(\boldsymbol{0}, \sigma_0^2 \mathbf{I}_3)$. Compare visualmente las imágenes original y contaminada. No recorte las intensidades observadas fuera de $[0, 1]$ durante la inferencia. Limite sus valores únicamente para la visualización.
+
+El objetivo es recuperar la imagen verdadera $\boldsymbol{X}$ a partir de $\boldsymbol{Y}$. Para ello, considere una extensión multivariada del \textbf{modelo GMRF}, que incorpora dependencia espacial entre píxeles vecinos y dependencia entre los tres canales de color. El modelo bayesiano se especifica mediante
+\begin{align*}
+\boldsymbol{Y}_i \mid \boldsymbol{X}_i, \mathbf{\Sigma} &\overset{\text{ind}}{\sim} \textsf{N}_3(\boldsymbol{X}_i, \mathbf{\Sigma}), \\[6pt]
+\boldsymbol{x} \mid \boldsymbol{\mu}, \mathbf{\Omega}, \lambda &\sim \textsf{N}_{3P}\left(\boldsymbol{1}_P \otimes \boldsymbol{\mu}, \mathbf{Q}^{-1}\right), \\[6pt]
+\mathbf{\Sigma} &\sim \textsf{IW}_3(\nu_\varepsilon, \mathbf{S}_\varepsilon), \\
+\boldsymbol{\mu} &\sim \textsf{N}_3(\boldsymbol{m}_\mu, \mathbf{V}_\mu), \\
+\mathbf{\Omega} &\sim \textsf{W}_3(\nu_\Omega, \mathbf{S}_\Omega), \\
+\lambda &\sim \textsf{G}(a_\lambda, b_\lambda),
+\end{align*}
+donde $\mathbf{Q} = (\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega}$ es la matriz de precisión del campo gaussiano, con $\lambda > 0$ y $\mathbf{\Omega}$ definida positiva. El símbolo $\otimes$ representa el producto de Kronecker, que permite construir matrices por bloques. El modelo supone independencia previa entre los parámetros.
+
+Las componentes del modelo son:
+\begin{itemize}
+    \item \textbf{Modelo de observación:} representa la contaminación mediante ruido gaussiano independiente entre píxeles. La matriz de covarianza $\mathbf{\Sigma}$ describe la variabilidad del ruido y su posible correlación entre los canales RGB.
+    \item \textbf{Modelo GMRF multivariado:} define la distribución previa de la imagen desconocida $\boldsymbol{X}$. El vector $\boldsymbol{\mu} \in \mathbb{R}^3$ representa las intensidades de referencia, $\lambda$ controla la suavidad espacial y $\mathbf{\Omega}$ regula la variabilidad y dependencia entre canales. La matriz $\mathbf{L}$ es la Laplaciana definida anteriormente. La estructura de $\mathbf{Q}$ permite representar simultáneamente las dependencias espaciales y entre colores.
+    \item \textbf{Distribuciones previas:} representan la incertidumbre sobre $\mathbf{\Sigma}$, $\boldsymbol{\mu}$, $\mathbf{\Omega}$ y $\lambda$. Las distribuciones Wishart y Wishart Inversa se utilizan para modelar matrices de precisión y covarianza definidas positivas, respectivamente. Sus grados de libertad y matrices de escala, junto con $\boldsymbol{m}_\mu, \mathbf{V}_\mu, a_\lambda, b_\lambda$, son hiperparámetros del modelo.
+\end{itemize}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Formule la distribución posterior conjunta $p(\boldsymbol{x}, \boldsymbol{\mu}, \mathbf{\Omega}, \lambda, \mathbf{\Sigma} \mid \boldsymbol{y})$ y derive las distribuciones condicionales completas de $\boldsymbol{X}_i$, $\mathbf{\Sigma}$, $\boldsymbol{\mu}$, $\mathbf{\Omega}$ y $\lambda$. Identifique cuáles corresponden a distribuciones conocidas. Verifique que la condicional de $\boldsymbol{X}_i$ es normal trivariada y depende de sus vecinos, de la observación y de los parámetros del modelo. Explique el papel del determinante de $\mathbf{Q}$ en la estimación de $\lambda$.
+\end{enumerate}
+
+%----------------------------------------------------------------------
+\subsection{Distribución posterior conjunta}
+%----------------------------------------------------------------------
+
+Por el teorema de Bayes y la independencia previa entre los parámetros, la distribución posterior conjunta es
+\[
+p(\boldsymbol{x}, \boldsymbol{\mu}, \mathbf{\Omega}, \lambda, \mathbf{\Sigma} \mid \boldsymbol{y}) \propto p(\boldsymbol{y} \mid \boldsymbol{x}, \mathbf{\Sigma}) \, p(\boldsymbol{x} \mid \boldsymbol{\mu}, \mathbf{\Omega}, \lambda) \, p(\mathbf{\Sigma}) \, p(\boldsymbol{\mu}) \, p(\mathbf{\Omega}) \, p(\lambda).
+\]
+Sustituyendo cada componente del modelo jerárquico (con $P$ píxeles en total), se obtiene
+\begin{align*}
+p(\boldsymbol{x}, \boldsymbol{\mu}, \mathbf{\Omega}, \lambda, \mathbf{\Sigma} \mid \boldsymbol{y})
+&\propto \left[ (2\pi)^{-3P/2} |\mathbf{\Sigma}|^{-P/2} \exp\left\{ -\frac{1}{2} \sum_{i=1}^{P} (\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i) \right\} \right] \\
+&\quad \times \left[ (2\pi)^{-3P/2} |\mathbf{Q}|^{1/2} \exp\left\{ -\frac{1}{2} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) \right\} \right] \\
+&\quad \times \left[ \frac{|\mathbf{S}_\varepsilon|^{\nu_\varepsilon / 2}}{2^{3\nu_\varepsilon / 2}\, \Gamma_3(\nu_\varepsilon / 2)} |\mathbf{\Sigma}|^{-\frac{\nu_\varepsilon + 4}{2}} \exp\left\{ -\frac{1}{2} \operatorname{tr}(\mathbf{S}_\varepsilon \mathbf{\Sigma}^{-1}) \right\} \right] \\
+&\quad \times \left[ (2\pi)^{-3/2} |\mathbf{V}_\mu|^{-1/2} \exp\left\{ -\frac{1}{2} (\boldsymbol{\mu} - \boldsymbol{m}_\mu)' \mathbf{V}_\mu^{-1} (\boldsymbol{\mu} - \boldsymbol{m}_\mu) \right\} \right] \\
+&\quad \times \left[ \frac{1}{2^{3\nu_\Omega / 2} |\mathbf{S}_\Omega|^{\nu_\Omega / 2}\, \Gamma_3(\nu_\Omega / 2)} |\mathbf{\Omega}|^{\frac{\nu_\Omega - 4}{2}} \exp\left\{ -\frac{1}{2} \operatorname{tr}(\mathbf{S}_\Omega^{-1} \mathbf{\Omega}) \right\} \right] \\
+&\quad \times \left[ \frac{b_\lambda^{a_\lambda}}{\Gamma(a_\lambda)} \lambda^{a_\lambda - 1} \exp(-b_\lambda \lambda) \right].
+\end{align*}
+
+Se absorben todas las constantes de normalización en el símbolo de proporcionalidad y se aplican las propiedades del producto de Kronecker a $\mathbf{Q} = (\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega}$: $(\mathbf{A} \otimes \mathbf{B})^{-1} = \mathbf{A}^{-1} \otimes \mathbf{B}^{-1}$ garantiza que la matriz de precisión en la forma cuadrática sea $\mathbf{Q}$, y $|\mathbf{A} \otimes \mathbf{B}| = |\mathbf{A}|^3 |\mathbf{B}|^P$, para $\mathbf{A}\in\mathbb{R}^{P\times P}$ y $\mathbf{B}\in\mathbb{R}^{3\times 3}$, implica que
+\[
+|\mathbf{Q}|^{1/2} = |\mathbf{I}_P + \lambda\mathbf{L}|^{3/2} |\mathbf{\Omega}|^{P/2}.
+\]
+Resulta
+\begin{align*}
+p(\boldsymbol{x}, \boldsymbol{\mu}, \mathbf{\Omega}, \lambda, \mathbf{\Sigma} \mid \boldsymbol{y})
+&\propto |\mathbf{\Sigma}|^{-P/2} |\mathbf{\Sigma}|^{-\frac{\nu_\varepsilon + 4}{2}} |\mathbf{I}_P + \lambda\mathbf{L}|^{3/2} |\mathbf{\Omega}|^{P/2} |\mathbf{\Omega}|^{\frac{\nu_\Omega - 4}{2}} \lambda^{a_\lambda - 1} \\
+&\quad \times \exp\Bigg\{ -\frac{1}{2} \sum_{i=1}^{P} (\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i)
+- \frac{1}{2} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \left[ (\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega} \right] (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) \\
+&\qquad\quad - \frac{1}{2} \operatorname{tr}(\mathbf{S}_\varepsilon \mathbf{\Sigma}^{-1})
+- \frac{1}{2} (\boldsymbol{\mu} - \boldsymbol{m}_\mu)' \mathbf{V}_\mu^{-1} (\boldsymbol{\mu} - \boldsymbol{m}_\mu)
+- \frac{1}{2} \operatorname{tr}(\mathbf{S}_\Omega^{-1} \mathbf{\Omega}) - b_\lambda \lambda \Bigg\}.
+\end{align*}
+
+Agrupando los determinantes de igual base y los términos dentro de la exponencial, la distribución posterior conjunta queda
+\begin{align*}
+p(\boldsymbol{x}, \boldsymbol{\mu}, \mathbf{\Omega}, \lambda, \mathbf{\Sigma} \mid \boldsymbol{y})
+&\propto |\mathbf{\Sigma}|^{-\frac{P + \nu_\varepsilon + 4}{2}} \, |\mathbf{\Omega}|^{\frac{P + \nu_\Omega - 4}{2}} \, |\mathbf{I}_P + \lambda\mathbf{L}|^{3/2} \, \lambda^{a_\lambda - 1} \\
+&\quad \times \exp\Bigg\{ -\frac{1}{2} \Bigg[ \sum_{i=1}^{P} (\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i)
++ (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \left[ (\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega} \right] (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) \\
+&\qquad\quad + \operatorname{tr}(\mathbf{S}_\varepsilon \mathbf{\Sigma}^{-1})
++ (\boldsymbol{\mu} - \boldsymbol{m}_\mu)' \mathbf{V}_\mu^{-1} (\boldsymbol{\mu} - \boldsymbol{m}_\mu)
++ \operatorname{tr}(\mathbf{S}_\Omega^{-1} \mathbf{\Omega}) + 2 b_\lambda \lambda \Bigg] \Bigg\},
+\end{align*}
+para $\boldsymbol{x} \in \mathbb{R}^{3P}$, $\boldsymbol{\mu} \in \mathbb{R}^3$, $\lambda > 0$, y matrices simétricas definidas positivas $\mathbf{\Sigma}$ y $\mathbf{\Omega}$.
+
+%----------------------------------------------------------------------
+\subsection{Distribuciones condicionales completas}
+%----------------------------------------------------------------------
+
+\subsubsection*{Condicional completa de $\boldsymbol{X}_i$}
+
+Para un píxel $i$ fijo, la condicional completa es proporcional a la densidad conjunta, conservando únicamente los factores que dependen de $\boldsymbol{x}_i$:
+\begin{align*}
+p(\boldsymbol{x}_i \mid \cdot)
+&\propto p(\boldsymbol{y}\mid \boldsymbol{x},\mathbf{\Sigma})\,
+p(\boldsymbol{x}\mid \boldsymbol{\mu},\mathbf{\Omega},\lambda)\\
+&\propto \exp\left\{-\tfrac{1}{2}(\boldsymbol{y}_i-\boldsymbol{x}_i)'\mathbf{\Sigma}^{-1}(\boldsymbol{y}_i-\boldsymbol{x}_i)\right\}
+\exp\left\{-\tfrac{1}{2}(\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu})'\mathbf{Q}(\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu})\right\}\\
+&\propto \exp\left\{-\tfrac{1}{2}\Big[(\boldsymbol{y}_i-\boldsymbol{x}_i)'\mathbf{\Sigma}^{-1}(\boldsymbol{y}_i-\boldsymbol{x}_i)
++(\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu})'\mathbf{Q}(\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu})\Big]\right\}.
+\end{align*}
+
+\paragraph{(1) Término de la verosimilitud.}
+\[
+(\boldsymbol{y}_i-\boldsymbol{x}_i)'\mathbf{\Sigma}^{-1}(\boldsymbol{y}_i-\boldsymbol{x}_i)
+=\underbrace{\boldsymbol{y}_i'\mathbf{\Sigma}^{-1}\boldsymbol{y}_i}_{\text{cte. en }\boldsymbol{x}_i}
+-2\boldsymbol{x}_i'\mathbf{\Sigma}^{-1}\boldsymbol{y}_i
++\boldsymbol{x}_i'\mathbf{\Sigma}^{-1}\boldsymbol{x}_i .
+\]
+
+\paragraph{(2) Término de la previa.}
+Sea $\boldsymbol{z}=\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu}=(\boldsymbol{z}_1',\ldots,\boldsymbol{z}_P')'\in\mathbb{R}^{3P}$, con $\boldsymbol{z}_j=\boldsymbol{x}_j-\boldsymbol{\mu}\in\mathbb{R}^3$, y sea $\mathbf{M}=\mathbf{I}_P+\lambda\mathbf{L}$. Como
+\[
+L_{ij}=\begin{cases}
+d_i, & j=i,\\
+-1, & j\in N_i,\\
+0, & j\neq i,\; j\notin N_i,
+\end{cases}
+\qquad\text{entonces}\qquad
+m_{ij}=\begin{cases}
+1+\lambda d_i, & j=i,\\
+-\lambda, & j\in N_i,\\
+0, & j\neq i,\; j\notin N_i .
+\end{cases}
+\]
+Así, $(\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu})'\mathbf{Q}(\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu})=\boldsymbol{z}'(\mathbf{M}\otimes\mathbf{\Omega})\boldsymbol{z}$. Puesto que el bloque $j$ de $(\mathbf{M}\otimes\mathbf{\Omega})\boldsymbol{z}$ es $\sum_{k=1}^{P} m_{jk}\mathbf{\Omega}\boldsymbol{z}_k$,
+\[
+\boldsymbol{z}'(\mathbf{M}\otimes\mathbf{\Omega})\boldsymbol{z}
+=\sum_{j=1}^{P}\boldsymbol{z}_j'\left[\sum_{k=1}^{P} m_{jk}\mathbf{\Omega}\boldsymbol{z}_k\right]
+=\sum_{j=1}^{P}\sum_{k=1}^{P} m_{jk}\,\boldsymbol{z}_j'\mathbf{\Omega}\boldsymbol{z}_k .
+\]
+Separando los términos que contienen a $\boldsymbol{z}_i$:
+\[
+\sum_{j=1}^{P}\sum_{k=1}^{P} m_{jk}\,\boldsymbol{z}_j'\mathbf{\Omega}\boldsymbol{z}_k
+= m_{ii}\,\boldsymbol{z}_i'\mathbf{\Omega}\boldsymbol{z}_i
++\sum_{k\neq i} m_{ik}\,\boldsymbol{z}_i'\mathbf{\Omega}\boldsymbol{z}_k
++\sum_{j\neq i} m_{ji}\,\boldsymbol{z}_j'\mathbf{\Omega}\boldsymbol{z}_i
++\underbrace{\sum_{j\neq i}\sum_{k\neq i} m_{jk}\,\boldsymbol{z}_j'\mathbf{\Omega}\boldsymbol{z}_k}_{\text{cte. en }\boldsymbol{x}_i}.
+\]
+Como $\mathbf{M}$ y $\mathbf{\Omega}$ son simétricas, $m_{ji}=m_{ij}$ y $\boldsymbol{z}_j'\mathbf{\Omega}\boldsymbol{z}_i=(\boldsymbol{z}_j'\mathbf{\Omega}\boldsymbol{z}_i)'=\boldsymbol{z}_i'\mathbf{\Omega}\boldsymbol{z}_j$, por lo que las dos sumas intermedias coinciden:
+\[
+\boldsymbol{z}'(\mathbf{M}\otimes\mathbf{\Omega})\boldsymbol{z}
+= m_{ii}\,\boldsymbol{z}_i'\mathbf{\Omega}\boldsymbol{z}_i
++2\sum_{j\neq i} m_{ij}\,\boldsymbol{z}_i'\mathbf{\Omega}\boldsymbol{z}_j
++\text{cte. en }\boldsymbol{x}_i .
+\]
+Reemplazando $m_{ii}$ y $m_{ij}$ (los términos con $j\notin N_i$ se anulan porque $m_{ij}=0$):
+\[
+\boldsymbol{z}'(\mathbf{M}\otimes\mathbf{\Omega})\boldsymbol{z}
+=(1+\lambda d_i)\,\boldsymbol{z}_i'\mathbf{\Omega}\boldsymbol{z}_i
+-2\lambda\sum_{j\in N_i}\boldsymbol{z}_i'\mathbf{\Omega}\boldsymbol{z}_j
++\text{cte. en }\boldsymbol{x}_i .
+\]
+Sustituyendo $\boldsymbol{z}_i=\boldsymbol{x}_i-\boldsymbol{\mu}$ y $\boldsymbol{z}_j=\boldsymbol{x}_j-\boldsymbol{\mu}$:
+\begin{align*}
+(\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu})'\mathbf{Q}(\boldsymbol{x}-\boldsymbol{1}_P\otimes\boldsymbol{\mu})
+&=(1+\lambda d_i)(\boldsymbol{x}_i-\boldsymbol{\mu})'\mathbf{\Omega}(\boldsymbol{x}_i-\boldsymbol{\mu})
+-2\lambda\sum_{j\in N_i}(\boldsymbol{x}_i-\boldsymbol{\mu})'\mathbf{\Omega}(\boldsymbol{x}_j-\boldsymbol{\mu})
++\text{cte.}\\
+&=(1+\lambda d_i)\left(\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{x}_i-2\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{\mu}+\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{\mu}\right)\\
+&\quad-2\lambda\sum_{j\in N_i}\left(\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{x}_j-\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{\mu}-\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{x}_j+\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{\mu}\right)+\text{cte.}
+\end{align*}
+Distribuyendo $(1+\lambda d_i)$ y la sumatoria, y notando que $\sum_{j\in N_i}\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{\mu}=d_i\,\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{\mu}$:
+\begin{align*}
+&=(1+\lambda d_i)\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{x}_i
+-2\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{\mu}
+-2\lambda d_i\,\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{\mu}
+-2\lambda\sum_{j\in N_i}\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{x}_j
++2\lambda d_i\,\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{\mu}
++\text{cte. en }\boldsymbol{x}_i\\
+&=(1+\lambda d_i)\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{x}_i
+-2\boldsymbol{x}_i'\mathbf{\Omega}\Big(\boldsymbol{\mu}+\lambda\sum_{j\in N_i}\boldsymbol{x}_j\Big)
++\text{cte. en }\boldsymbol{x}_i .
+\end{align*}
+
+\paragraph{Resultado.}
+Combinando (1) y (2) y eliminando los términos constantes:
+\begin{align*}
+p(\boldsymbol{x}_i\mid \cdot)
+&\propto\exp\left\{-\tfrac{1}{2}\Big[\boldsymbol{x}_i'\mathbf{\Sigma}^{-1}\boldsymbol{x}_i-2\boldsymbol{x}_i'\mathbf{\Sigma}^{-1}\boldsymbol{y}_i
++(1+\lambda d_i)\boldsymbol{x}_i'\mathbf{\Omega}\boldsymbol{x}_i
+-2\boldsymbol{x}_i'\mathbf{\Omega}\Big(\boldsymbol{\mu}+\lambda\sum_{j\in N_i}\boldsymbol{x}_j\Big)\Big]\right\}\\
+&\propto\exp\left\{-\tfrac{1}{2}\Big[\boldsymbol{x}_i'\big(\mathbf{\Sigma}^{-1}+(1+\lambda d_i)\mathbf{\Omega}\big)\boldsymbol{x}_i
+-2\boldsymbol{x}_i'\Big(\mathbf{\Sigma}^{-1}\boldsymbol{y}_i+\mathbf{\Omega}\Big(\boldsymbol{\mu}+\lambda\sum_{j\in N_i}\boldsymbol{x}_j\Big)\Big)\Big]\right\},
+\end{align*}
+que corresponde al núcleo de una distribución normal trivariada. Por lo tanto,
+\[
+\boldsymbol{X}_i\mid \cdot \;\sim\;\textsf{N}_3\left(\boldsymbol{\mu}_i^{*},\,\mathbf{\Sigma}_i^{*}\right),
+\]
+con
+\begin{align*}
+\mathbf{\Sigma}_i^{*}&=\left[\mathbf{\Sigma}^{-1}+(1+\lambda d_i)\mathbf{\Omega}\right]^{-1},\\
+\boldsymbol{\mu}_i^{*}&=\mathbf{\Sigma}_i^{*}\left[\mathbf{\Sigma}^{-1}\boldsymbol{y}_i+\mathbf{\Omega}\Big(\boldsymbol{\mu}+\lambda\sum_{j\in N_i}\boldsymbol{x}_j\Big)\right].
+\end{align*}
+
+\paragraph{Dependencia de la condicional.}
+La condicional completa de $\boldsymbol{X}_i$ depende únicamente de tres fuentes de información:
+\begin{itemize}
+\item \textbf{La observación $\boldsymbol{y}_i$}, que entra en la media a través de $\mathbf{\Sigma}^{-1}\boldsymbol{y}_i$, ponderada por la precisión del ruido. Las demás observaciones $\boldsymbol{y}_j$, $j\neq i$, no intervienen porque el modelo de observación es independiente entre píxeles.
+\item \textbf{Los vecinos $\{\boldsymbol{x}_j: j\in N_i\}$}, a través de la suma $\sum_{j\in N_i}\boldsymbol{x}_j$ en la media y del número de vecinos $d_i$ en la precisión. Los píxeles no vecinos desaparecen porque $m_{ij}=0$ cuando $j\notin N_i$: la matriz $\mathbf{M}=\mathbf{I}_P+\lambda\mathbf{L}$ es dispersa y hereda la estructura del grafo. Esta es la propiedad de Markov del GMRF, es decir, $p(\boldsymbol{x}_i\mid\boldsymbol{x}_{-i},\cdot)=p(\boldsymbol{x}_i\mid\boldsymbol{x}_{N_i},\cdot)$.
+\item \textbf{Los parámetros $\mathbf{\Sigma}$, $\boldsymbol{\mu}$, $\mathbf{\Omega}$ y $\lambda$}: $\mathbf{\Sigma}$ fija cuánto pesa el dato, $\mathbf{\Omega}$ cuánto pesa la previa y cómo se relacionan los canales, $\lambda$ la intensidad del suavizamiento espacial y $\boldsymbol{\mu}$ la intensidad de referencia.
+\end{itemize}
+La media puede reescribirse como un promedio ponderado por precisiones entre el dato y una ``predicción'' basada en la previa:
+\[
+\boldsymbol{\mu}_i^{*}=\mathbf{\Sigma}_i^{*}\left[\mathbf{\Sigma}^{-1}\boldsymbol{y}_i+(1+\lambda d_i)\mathbf{\Omega}\,\tilde{\boldsymbol{m}}_i\right],
+\qquad
+\tilde{\boldsymbol{m}}_i=\frac{\boldsymbol{\mu}+\lambda d_i\,\bar{\boldsymbol{x}}_{N_i}}{1+\lambda d_i},
+\]
+donde $\bar{\boldsymbol{x}}_{N_i}=d_i^{-1}\sum_{j\in N_i}\boldsymbol{x}_j$ es el promedio de los vecinos. Si $\lambda\to0$, la previa ignora a los vecinos y $\tilde{\boldsymbol{m}}_i\to\boldsymbol{\mu}$; si $\lambda$ es grande, $\tilde{\boldsymbol{m}}_i\approx\bar{\boldsymbol{x}}_{N_i}$ y el píxel se ``suaviza'' hacia sus vecinos. Además, la precisión $\mathbf{\Sigma}^{-1}+(1+\lambda d_i)\mathbf{\Omega}$ crece con $d_i$, por lo que los píxeles interiores ($d_i=4$) tienen menor incertidumbre condicional que los de borde ($d_i=3$) y las esquinas ($d_i=2$).
+
+\subsubsection*{Condicional completa de $\mathbf{\Sigma}$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\mathbf{\Sigma}$:
+\begin{align*}
+p(\mathbf{\Sigma} \mid \cdot)
+&\propto p(\boldsymbol{y} \mid \boldsymbol{x}, \mathbf{\Sigma})\, p(\mathbf{\Sigma}) \\[6pt]
+&\propto \left[ \prod_{i=1}^{P} |\mathbf{\Sigma}|^{-1/2} \exp\left\{ -\frac{1}{2} (\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i) \right\} \right]
+|\mathbf{\Sigma}|^{-\frac{\nu_\varepsilon + 4}{2}} \exp\left\{ -\frac{1}{2} \operatorname{tr}(\mathbf{S}_\varepsilon \mathbf{\Sigma}^{-1}) \right\} \\[6pt]
+&\propto |\mathbf{\Sigma}|^{-P/2} \exp\left\{ -\frac{1}{2} \sum_{i=1}^{P} (\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i) \right\}
+|\mathbf{\Sigma}|^{-\frac{\nu_\varepsilon + 4}{2}} \exp\left\{ -\frac{1}{2} \operatorname{tr}(\mathbf{S}_\varepsilon \mathbf{\Sigma}^{-1}) \right\} \\[6pt]
+&= |\mathbf{\Sigma}|^{-\frac{\nu_\varepsilon + P + 3 + 1}{2}} \exp\left\{ -\frac{1}{2} \left[ \operatorname{tr}(\mathbf{S}_\varepsilon \mathbf{\Sigma}^{-1}) + \sum_{i=1}^{P} (\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i) \right] \right\}.
+\end{align*}
+Como $(\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i)$ es un escalar, es igual a su traza, y por la propiedad cíclica de la traza
+\[
+(\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i)
+= \operatorname{tr}\left( (\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} (\boldsymbol{y}_i - \boldsymbol{x}_i) \right)
+= \operatorname{tr}\left( (\boldsymbol{y}_i - \boldsymbol{x}_i)(\boldsymbol{y}_i - \boldsymbol{x}_i)' \mathbf{\Sigma}^{-1} \right).
+\]
+Reemplazando,
+\[
+p(\mathbf{\Sigma} \mid \cdot) \propto |\mathbf{\Sigma}|^{-\frac{\nu_\varepsilon + P + 3 + 1}{2}} \exp\left\{ -\frac{1}{2} \operatorname{tr}\left( \left[ \mathbf{S}_\varepsilon + \sum_{i=1}^{P} (\boldsymbol{y}_i - \boldsymbol{x}_i)(\boldsymbol{y}_i - \boldsymbol{x}_i)' \right] \mathbf{\Sigma}^{-1} \right) \right\}.
+\]
+Esto coincide con el núcleo de una distribución Wishart Inversa, así
+\[
+\mathbf{\Sigma} \mid \cdot \sim \textsf{IW}_3\left( \nu_\varepsilon + P, \; \mathbf{S}_\varepsilon + \sum_{i=1}^{P} (\boldsymbol{y}_i - \boldsymbol{x}_i)(\boldsymbol{y}_i - \boldsymbol{x}_i)' \right).
+\]
+
+\subsubsection*{Condicional completa de $\boldsymbol{\mu}$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\boldsymbol{\mu}$:
+\begin{align*}
+p(\boldsymbol{\mu} \mid \cdot)
+&\propto p(\boldsymbol{x} \mid \boldsymbol{\mu}, \mathbf{\Omega}, \lambda)\, p(\boldsymbol{\mu}) \\[6pt]
+&\propto \underbrace{|\mathbf{Q}^{-1}|^{-1/2}}_{\text{cte. en }\boldsymbol{\mu}} \exp\left\{ -\frac{1}{2} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) \right\}
+\underbrace{|\mathbf{V}_\mu|^{-1/2}}_{\text{cte.}} \exp\left\{ -\frac{1}{2} (\boldsymbol{\mu} - \boldsymbol{m}_\mu)' \mathbf{V}_\mu^{-1} (\boldsymbol{\mu} - \boldsymbol{m}_\mu) \right\} \\[6pt]
+&\propto \exp\left\{ -\frac{1}{2} \left[ (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) + (\boldsymbol{\mu} - \boldsymbol{m}_\mu)' \mathbf{V}_\mu^{-1} (\boldsymbol{\mu} - \boldsymbol{m}_\mu) \right] \right\}.
+\end{align*}
+
+\paragraph{(1) Término de la previa del campo.}
+\[
+(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})
+= \underbrace{\boldsymbol{x}'\mathbf{Q}\boldsymbol{x}}_{\text{cte. en }\boldsymbol{\mu}}
+- (\boldsymbol{1}_P \otimes \boldsymbol{\mu})'\mathbf{Q}\boldsymbol{x}
+- \boldsymbol{x}'\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu})
++ (\boldsymbol{1}_P \otimes \boldsymbol{\mu})'\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu}).
+\]
+Como $\boldsymbol{x}'\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu})$ es un escalar ($1\times 3P$ por $3P\times 3P$ por $3P\times 1$) y $\mathbf{Q}$ es simétrica,
+\[
+\boldsymbol{x}'\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu}) = \left[\boldsymbol{x}'\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu})\right]' = (\boldsymbol{1}_P \otimes \boldsymbol{\mu})'\mathbf{Q}\boldsymbol{x},
+\]
+de modo que
+\[
+(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})
+= (\boldsymbol{1}_P \otimes \boldsymbol{\mu})'\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu}) - 2(\boldsymbol{1}_P \otimes \boldsymbol{\mu})'\mathbf{Q}\boldsymbol{x} + \text{cte. en }\boldsymbol{\mu}.
+\]
+
+Se simplifica usando la propiedad del producto mixto
+\begin{equation*}
+(\mathbf{A}\otimes\mathbf{B})(\mathbf{C}\otimes\mathbf{D}) = (\mathbf{A}\mathbf{C})\otimes(\mathbf{B}\mathbf{D}). \tag{$*$}
+\end{equation*}
+Así,
+\[
+\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu}) = \left[(\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega}\right](\boldsymbol{1}_P \otimes \boldsymbol{\mu}) = \left[(\mathbf{I}_P + \lambda\mathbf{L})\boldsymbol{1}_P\right] \otimes (\mathbf{\Omega}\boldsymbol{\mu}).
+\]
+Como la suma de cada fila de $\mathbf{L}$ es cero, $\mathbf{L}\boldsymbol{1}_P = \boldsymbol{0}$, y así
+\[
+\mathbf{I}_P\boldsymbol{1}_P + \lambda\mathbf{L}\boldsymbol{1}_P = \boldsymbol{1}_P + \lambda\boldsymbol{0} = \boldsymbol{1}_P.
+\]
+Entonces $\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu}) = \boldsymbol{1}_P \otimes (\mathbf{\Omega}\boldsymbol{\mu})$. De esta manera,
+\begin{align*}
+(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})
+&= (\boldsymbol{1}_P \otimes \boldsymbol{\mu})'\left(\boldsymbol{1}_P \otimes (\mathbf{\Omega}\boldsymbol{\mu})\right) - 2(\boldsymbol{1}_P \otimes \boldsymbol{\mu})'\mathbf{Q}\boldsymbol{x} + \text{cte. en }\boldsymbol{\mu} \\
+&= (\boldsymbol{1}_P' \otimes \boldsymbol{\mu}')\left(\boldsymbol{1}_P \otimes (\mathbf{\Omega}\boldsymbol{\mu})\right) - 2\left[\mathbf{Q}'(\boldsymbol{1}_P \otimes \boldsymbol{\mu})\right]'\boldsymbol{x} + \text{cte. en }\boldsymbol{\mu}.
+\end{align*}
+Usando $(*)$ y $\mathbf{Q}' = \mathbf{Q}$, pues $\mathbf{I}_P$, $\mathbf{L}$ y $\mathbf{\Omega}$ son simétricas,
+\[
+= (\boldsymbol{1}_P'\boldsymbol{1}_P) \otimes (\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{\mu}) - 2\left[\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu})\right]'\boldsymbol{x} + \text{cte. en }\boldsymbol{\mu}.
+\]
+Como $\boldsymbol{1}_P'\boldsymbol{1}_P = P$ y $\mathbf{Q}(\boldsymbol{1}_P \otimes \boldsymbol{\mu}) = \boldsymbol{1}_P \otimes (\mathbf{\Omega}\boldsymbol{\mu})$ (paso anterior),
+\begin{align*}
+&= P\,\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{\mu} - 2\left(\boldsymbol{1}_P \otimes \mathbf{\Omega}\boldsymbol{\mu}\right)'\boldsymbol{x} + \text{cte. en }\boldsymbol{\mu} \\
+&= P\,\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{\mu} - 2\left(\boldsymbol{1}_P' \otimes \boldsymbol{\mu}'\mathbf{\Omega}\right)\boldsymbol{x} + \text{cte. en }\boldsymbol{\mu},
+\end{align*}
+donde se usó la simetría de $\mathbf{\Omega}$. Además,
+\[
+\left(\boldsymbol{1}_P' \otimes \boldsymbol{\mu}'\mathbf{\Omega}\right)\boldsymbol{x}
+= \begin{pmatrix} \boldsymbol{\mu}'\mathbf{\Omega} & \boldsymbol{\mu}'\mathbf{\Omega} & \cdots & \boldsymbol{\mu}'\mathbf{\Omega} \end{pmatrix}_{1\times 3P}
+\begin{pmatrix} \boldsymbol{x}_1 \\ \boldsymbol{x}_2 \\ \vdots \\ \boldsymbol{x}_P \end{pmatrix}
+= \boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{x}_1 + \cdots + \boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{x}_P,
+\]
+y así
+\[
+2\left(\boldsymbol{1}_P' \otimes \boldsymbol{\mu}'\mathbf{\Omega}\right)\boldsymbol{x} = 2\sum_{i=1}^{P}\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{x}_i = 2\boldsymbol{\mu}'\mathbf{\Omega}\sum_{i=1}^{P}\boldsymbol{x}_i.
+\]
+Reemplazando,
+\[
+(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})
+= P\,\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{\mu} - 2\boldsymbol{\mu}'\mathbf{\Omega}\sum_{i=1}^{P}\boldsymbol{x}_i + \text{cte. en }\boldsymbol{\mu}.
+\]
+
+\paragraph{(2) Término de la previa de $\boldsymbol{\mu}$.}
+\[
+(\boldsymbol{\mu} - \boldsymbol{m}_\mu)' \mathbf{V}_\mu^{-1} (\boldsymbol{\mu} - \boldsymbol{m}_\mu)
+= \boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{\mu} - \boldsymbol{m}_\mu'\mathbf{V}_\mu^{-1}\boldsymbol{\mu} - \boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu + \underbrace{\boldsymbol{m}_\mu'\mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu}_{\text{cte. en }\boldsymbol{\mu}}.
+\]
+Nuevamente, $\boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu$ ($1\times3$ por $3\times3$ por $3\times1$) es un escalar, y así
+\[
+\boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu = \operatorname{tr}\left(\boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu\right) = \boldsymbol{m}_\mu'\mathbf{V}_\mu^{-1}\boldsymbol{\mu}.
+\]
+Entonces
+\[
+(\boldsymbol{\mu} - \boldsymbol{m}_\mu)' \mathbf{V}_\mu^{-1} (\boldsymbol{\mu} - \boldsymbol{m}_\mu) = \boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{\mu} - 2\boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu + \text{cte. en }\boldsymbol{\mu}.
+\]
+
+\paragraph{Resultado.}
+Con (1) y (2), y eliminando los términos constantes, se tiene
+\begin{align*}
+p(\boldsymbol{\mu} \mid \cdot)
+&\propto \exp\left\{ -\frac{1}{2}\left[ P\,\boldsymbol{\mu}'\mathbf{\Omega}\boldsymbol{\mu} - 2\boldsymbol{\mu}'\mathbf{\Omega}\sum_{i=1}^{P}\boldsymbol{x}_i + \boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{\mu} - 2\boldsymbol{\mu}'\mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu \right] \right\} \\
+&\propto \exp\left\{ -\frac{1}{2}\left[ \boldsymbol{\mu}'\left(P\mathbf{\Omega} + \mathbf{V}_\mu^{-1}\right)\boldsymbol{\mu} - 2\boldsymbol{\mu}'\left(\mathbf{\Omega}\sum_{i=1}^{P}\boldsymbol{x}_i + \mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu\right) \right] \right\}.
+\end{align*}
+Este es el núcleo de una distribución normal multivariada, así
+\[
+\boldsymbol{\mu} \mid \cdot \sim \textsf{N}_3\left(\boldsymbol{m}_\mu^{*}, \mathbf{V}_\mu^{*}\right),
+\]
+con
+\begin{align*}
+\mathbf{V}_\mu^{*} &= \left(\mathbf{V}_\mu^{-1} + P\mathbf{\Omega}\right)^{-1}, \\
+\boldsymbol{m}_\mu^{*} &= \mathbf{V}_\mu^{*}\left(\mathbf{\Omega}\sum_{i=1}^{P}\boldsymbol{x}_i + \mathbf{V}_\mu^{-1}\boldsymbol{m}_\mu\right).
+\end{align*}
+
+\subsubsection*{Condicional completa de $\mathbf{\Omega}$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\mathbf{\Omega}$:
+\begin{align*}
+p(\mathbf{\Omega} \mid \cdot)
+&\propto p(\boldsymbol{x} \mid \boldsymbol{\mu}, \mathbf{\Omega}, \lambda)\, p(\mathbf{\Omega}) \\[6pt]
+&\propto |\mathbf{Q}^{-1}|^{-1/2} \exp\left\{ -\frac{1}{2} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) \right\}
+|\mathbf{\Omega}|^{\frac{\nu_\Omega - 4}{2}} \exp\left\{ -\frac{1}{2} \operatorname{tr}(\mathbf{S}_\Omega^{-1}\mathbf{\Omega}) \right\}.
+\end{align*}
+Usando $|\mathbf{A}\otimes\mathbf{B}| = |\mathbf{A}|^{n}|\mathbf{B}|^{m}$, con $\mathbf{A}\in\mathbb{R}^{m\times m}$ y $\mathbf{B}\in\mathbb{R}^{n\times n}$,
+\[
+|\mathbf{Q}^{-1}|^{-1/2} = |\mathbf{Q}|^{1/2} = \big|\underbrace{(\mathbf{I}_P + \lambda\mathbf{L})}_{P\times P} \otimes \underbrace{\mathbf{\Omega}}_{3\times 3}\big|^{1/2} = \underbrace{|\mathbf{I}_P + \lambda\mathbf{L}|^{3/2}}_{\text{cte. en }\mathbf{\Omega}} |\mathbf{\Omega}|^{P/2}.
+\]
+Así,
+\[
+p(\mathbf{\Omega} \mid \cdot) \propto |\mathbf{\Omega}|^{\frac{P + \nu_\Omega - 4}{2}} \exp\left\{ -\frac{1}{2}\left[ (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) + \operatorname{tr}(\mathbf{S}_\Omega^{-1}\mathbf{\Omega}) \right] \right\}.
+\]
+
+De la misma manera en que se trabajó para la condicional completa de $\boldsymbol{X}_i$, con $\boldsymbol{z}_j = \boldsymbol{x}_j - \boldsymbol{\mu}$ y $\mathbf{M} = \mathbf{I}_P + \lambda\mathbf{L}$,
+\[
+(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})
+= \boldsymbol{z}'(\mathbf{M}\otimes\mathbf{\Omega})\boldsymbol{z}
+= \sum_{j=1}^{P}\sum_{k=1}^{P} m_{jk}\,\boldsymbol{z}_j'\mathbf{\Omega}\boldsymbol{z}_k.
+\]
+Como $\boldsymbol{z}_j'\mathbf{\Omega}\boldsymbol{z}_k$ ($1\times3$ por $3\times3$ por $3\times1$) es un escalar, es igual a su traza, y por la propiedad cíclica,
+\[
+= \sum_{j=1}^{P}\sum_{k=1}^{P} m_{jk}\,\operatorname{tr}\left(\boldsymbol{z}_k\boldsymbol{z}_j'\mathbf{\Omega}\right)
+= \operatorname{tr}\left( \left[ \sum_{j=1}^{P}\sum_{k=1}^{P} m_{jk}\,\boldsymbol{z}_k\boldsymbol{z}_j' \right] \mathbf{\Omega} \right).
+\]
+Si se define la matriz $\mathbf{Z} = (\boldsymbol{z}_1 \; \boldsymbol{z}_2 \; \cdots \; \boldsymbol{z}_P) \in \mathbb{R}^{3\times P}$, con $\boldsymbol{z}_j = \boldsymbol{x}_j - \boldsymbol{\mu} \in \mathbb{R}^{3}$, entonces
+\begin{align*}
+\mathbf{Z}\mathbf{M}\mathbf{Z}'
+&= (\boldsymbol{z}_1 \; \boldsymbol{z}_2 \; \cdots \; \boldsymbol{z}_P)
+\begin{pmatrix}
+m_{11} & m_{12} & \cdots & m_{1P} \\
+m_{21} & m_{22} & \cdots & m_{2P} \\
+\vdots & \vdots & \ddots & \vdots \\
+m_{P1} & m_{P2} & \cdots & m_{PP}
+\end{pmatrix}
+\begin{pmatrix} \boldsymbol{z}_1' \\ \boldsymbol{z}_2' \\ \vdots \\ \boldsymbol{z}_P' \end{pmatrix} \\
+&= \left( \sum_{k=1}^{P} m_{k1}\boldsymbol{z}_k \;\; \sum_{k=1}^{P} m_{k2}\boldsymbol{z}_k \;\; \cdots \;\; \sum_{k=1}^{P} m_{kP}\boldsymbol{z}_k \right)
+\begin{pmatrix} \boldsymbol{z}_1' \\ \boldsymbol{z}_2' \\ \vdots \\ \boldsymbol{z}_P' \end{pmatrix} \\
+&= \sum_{j=1}^{P}\left( \sum_{k=1}^{P} m_{kj}\boldsymbol{z}_k \right)\boldsymbol{z}_j'.
+\end{align*}
+Como $\mathbf{M}$ es simétrica ($m_{kj} = m_{jk}$), esto coincide con el término dentro de la traza, y así
+\[
+(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) = \operatorname{tr}\left(\mathbf{Z}\mathbf{M}\mathbf{Z}'\mathbf{\Omega}\right).
+\]
+Entonces
+\begin{align*}
+p(\mathbf{\Omega} \mid \cdot)
+&\propto |\mathbf{\Omega}|^{\frac{P + \nu_\Omega - 4}{2}} \exp\left\{ -\frac{1}{2}\left[ \operatorname{tr}\left(\mathbf{Z}\mathbf{M}\mathbf{Z}'\mathbf{\Omega}\right) + \operatorname{tr}\left(\mathbf{S}_\Omega^{-1}\mathbf{\Omega}\right) \right] \right\} \\
+&= |\mathbf{\Omega}|^{\frac{P + \nu_\Omega - 4}{2}} \exp\left\{ -\frac{1}{2} \operatorname{tr}\left( \left[\mathbf{Z}\mathbf{M}\mathbf{Z}' + \mathbf{S}_\Omega^{-1}\right]\mathbf{\Omega} \right) \right\}.
+\end{align*}
+Esto coincide con el núcleo de una distribución Wishart, así
+\[
+\mathbf{\Omega} \mid \cdot \sim \textsf{W}_3\left(\nu_\Omega^{*}, \mathbf{S}_\Omega^{*}\right),
+\]
+con
+\begin{align*}
+\nu_\Omega^{*} &= P + \nu_\Omega, \\
+\mathbf{S}_\Omega^{*} &= \left[ \mathbf{S}_\Omega^{-1} + \mathbf{Z}(\mathbf{I}_P + \lambda\mathbf{L})\mathbf{Z}' \right]^{-1}.
+\end{align*}
+
+\subsubsection*{Condicional completa de $\lambda$}
+
+Se conservan únicamente los términos de la distribución posterior conjunta que dependen de $\lambda$:
+\begin{align*}
+p(\lambda \mid \cdot)
+&\propto p(\boldsymbol{x} \mid \boldsymbol{\mu}, \mathbf{\Omega}, \lambda)\, p(\lambda) \\[6pt]
+&\propto |\mathbf{Q}^{-1}|^{-1/2} \exp\left\{ -\frac{1}{2} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) \right\} \lambda^{a_\lambda - 1} e^{-b_\lambda \lambda}.
+\end{align*}
+Como
+\[
+|\mathbf{Q}^{-1}|^{-1/2} = |\mathbf{Q}|^{1/2} = |(\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega}|^{1/2} = |\mathbf{I}_P + \lambda\mathbf{L}|^{3/2} \underbrace{|\mathbf{\Omega}|^{P/2}}_{\text{cte. en }\lambda},
+\]
+se tiene
+\[
+p(\lambda \mid \cdot) \propto |\mathbf{I}_P + \lambda\mathbf{L}|^{3/2} \lambda^{a_\lambda - 1} \exp\left\{ -\frac{1}{2}\left[ (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) + 2b_\lambda\lambda \right] \right\}.
+\]
+Como se trabajó para $\boldsymbol{X}_i$ y para $\mathbf{\Omega}$,
+\[
+(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})' \mathbf{Q} (\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) = \boldsymbol{z}'\left[(\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega}\right]\boldsymbol{z}.
+\]
+Usando $(\mathbf{A} + \mathbf{B}) \otimes \mathbf{C} = (\mathbf{A} \otimes \mathbf{C}) + (\mathbf{B} \otimes \mathbf{C})$, se tiene $(\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega} = \mathbf{I}_P \otimes \mathbf{\Omega} + \lambda(\mathbf{L} \otimes \mathbf{\Omega})$, de modo que
+\[
+\boldsymbol{z}'\left[(\mathbf{I}_P + \lambda\mathbf{L}) \otimes \mathbf{\Omega}\right]\boldsymbol{z}
+= \underbrace{\boldsymbol{z}'(\mathbf{I}_P \otimes \mathbf{\Omega})\boldsymbol{z}}_{\text{cte. en }\lambda} + \lambda\,\boldsymbol{z}'(\mathbf{L} \otimes \mathbf{\Omega})\boldsymbol{z}.
+\]
+Así,
+\[
+p(\lambda \mid \cdot) \propto |\mathbf{I}_P + \lambda\mathbf{L}|^{3/2} \lambda^{a_\lambda - 1} \exp\left\{ -\lambda\left[ b_\lambda + \frac{1}{2}(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu})'(\mathbf{L} \otimes \mathbf{\Omega})(\boldsymbol{x} - \boldsymbol{1}_P \otimes \boldsymbol{\mu}) \right] \right\},
+\]
+para $\lambda > 0$. Esta expresión no coincide con el núcleo de una distribución conocida debido al factor $|\mathbf{I}_P + \lambda\mathbf{L}|^{3/2}$, que no permite que la distribución sea conjugada.
+
+\end{document}
