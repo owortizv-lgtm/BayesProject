@@ -2,7 +2,7 @@ source("R01_grafo.R")
 source("02_ising.R")
 library(coda)
 
-horse <- readPNG("horse_binaria.png")
+horse <- readPNG("imagenes/horse_binaria.png")
 # horse <- horse[, , 1]    # solo si dim(horse) tiene 3 dimensiones
 M <- 128; N <- 128
 g <- construir_grafo(M, N)
