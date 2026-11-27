@@ -4,13 +4,14 @@ Caso de estudio de Estadística Bayesiana (UNAL, prof. Juan Sosa). Autores: Meli
 Enunciado: `caso.Rmd`. Teoría ya derivada: `teoria.tex` (posteriores conjuntas y condicionales completas de los 3 modelos).
 
 ## Reglas críticas (aplican a Claude y a TODOS los subagentes)
-1. **Git:** NUNCA ejecutar `git commit`, `git push`, `git add`, `git reset`, `git rebase` ni similares, ni añadir firmas `Co-Authored-By`. Los autores hacen todos los commits a mano. Un hook (`.claude/hooks/bloquear-git.sh`) bloquea commit/push.
-2. **Verdad conocida:** las imágenes originales (`horse_binaria.png`, `camera_grises.png`, `astronaut_rgb.png`) solo se usan para (a) generar la contaminación y (b) calcular errores (proporción recuperada, MSE, SNR). **Nunca** para elegir hiperparámetros, valores iniciales, δ², K, iteraciones ni la realización del ruido.
-3. **Ruido:** una sola realización por escenario con semilla fija declarada de antemano; prohibido probar varias semillas y quedarse con la mejor.
+1. **Git:** NUNCA ejecutar `git commit`, `git push`, `git add`, `git reset`, `git rebase` ni similares, ni añadir firmas `Co-Authored-By`. Los autores hacen todos los commits a mano. Un hook (`.claude/hooks/bloquear-git.sh`) bloquea solo commit/push; los demás comandos de git quedan prohibidos por esta regla aunque el hook no los detenga.
+2. **Verdad conocida:** las imágenes originales (`horse_binaria.png`, `camera_grises.png`, `astronaut_rgb.png`) solo se usan para (a) generar la contaminación y (b) calcular errores (proporción recuperada, MSE, SNR). **Nunca** para elegir hiperparámetros, valores iniciales, δ², K, iteraciones ni la realización del ruido. Tampoco se usan los valores verdaderos de la simulación (ρ0, σ0, σ0²I_3) como valores iniciales o hiperparámetros.
+3. **Ruido:** una sola realización por escenario con semilla fija declarada de antemano en `99_ejecutar.R`; prohibido probar varias semillas y quedarse con la mejor. Esquema: `seed_ruido = 1000*modelo + 100*idx_escenario` y `seed_mcmc = seed_ruido + cadena`.
 4. **No recortar** `y` a [0,1] durante la inferencia; recortar solo al visualizar.
-5. **No re-derivar** lo que ya está en `teoria.tex`; citarlo por sección.
-6. **Código eficiente y claro** comentado brevemente.
-7. **Planear antes de ejecutar**, pedir aprobación antes de continuar.
+5. **Codificación binaria:** en `horse_binaria.png`, 0 (negro) → +1 y 1 (blanco) → −1. Así, π_i = Pr(X_i = +1 | y) es la probabilidad de negro.
+6. **No re-derivar** lo que ya está en `teoria.tex`; citarlo por sección.
+7. **Código eficiente y claro** comentado brevemente.
+8. **Planear antes de ejecutar:** el Claude principal presenta el plan y pide aprobación antes de continuar. Los subagentes no pueden preguntar durante su trabajo: ejecutan la tarea encargada y reportan al final las decisiones que los autores deben revisar.
 
 ## Ahorro de tokens
 - No leer `teoria.tex` completo (~62 KB): usar `Grep` con el encabezado y leer solo ese bloque. Mapa de secciones:
@@ -29,13 +30,13 @@ imagenes/            PNG originales (caso.Rmd los busca aquí)
 04_gmrf_rgb.R        GMRF multivariado: Gibbs + MH(λ), Wishart / Wishart Inversa
 src/*.cpp            barridos de Gibbs en Rcpp
 99_ejecutar.R        corre los escenarios ρ0, σ0 ∈ {0.05, 0.10, 0.20}
-output/*.rds         resultados (ignorados por git)
+output/*.rds         resultados (ignorados por git), incluido ising_sensK.rds (sensibilidad a K = 10, 30, 100)
 figuras/             PNG para informe y README
 informe/             LaTeX final
 ```
 
 ## Convenciones de código (estilo de Juan Sosa)
-- Encabezados `# Sección ----------`, sangría de 5 espacios, argumentos con nombre, `set.seed(seed)` dentro de cada función MCMC.
+- Encabezados `# Sección ----------`, sangría de 5 espacios en el código nuevo (no reformatear los scripts existentes de los autores), argumentos con nombre, `set.seed(seed)` dentro de cada función MCMC.
 - Cadenas en mayúscula (`BETA`, `RHO`, `SIGMA`), contadores `acept`, MH en escala log: `log(runif(1)) <= min(0, log_r)`.
 - Prefijo explícito `coda::`, `Matrix::`. Diagnósticos: `coda::effectiveSize`, EEMC, CVMC, `coda::gelman.diag` con ≥ 3 cadenas.
 - Orden de píxeles: por columnas (`as.vector`), igual en R y en C++.
@@ -43,9 +44,9 @@ informe/             LaTeX final
 ## Subagentes (`.claude/agents/`)
 | Agente | Uso |
 |:--|:--|
-| `bayesian-theorist` | Respuestas conceptuales pendientes, revisión conceptual actual, y correspondencia ecuación ↔ código |
-| `mcmc-coder` | Implementación R/Rcpp, escenarios y `output/*.rds` |
-| `bayesian-auditor` | Auditoría de fugas, convergencia y métricas (solo lectura) |
-| `latex-reporter` | Informe LaTeX APA final |
+| `bayesian-theorist` | Respuestas conceptuales (Z(β), exchange y K finito, \|Q\|, \|I_P+λL\|) en `teoria_respuestas.tex` y correspondencia ecuación ↔ código |
+| `mcmc-coder` | Implementación R/Rcpp, escenarios, sensibilidad a K y `output/*.rds` |
+| `bayesian-auditor` | Auditoría de fugas, codificación, convergencia y métricas (solo lectura) |
+| `latex-reporter` | Informe LaTeX APA final, con figuras de exploración y de los 3 escenarios |
 
 Flujo típico: theorist → coder → auditor → (correcciones) → reporter. Modificar un agente: `/ajustar-agente <nombre> <cambio>`.
